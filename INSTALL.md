@@ -75,7 +75,7 @@ Verify: `graphify --version` → `0.9.5` or later
 /plugin install vault@github.com/mateffy/vault-plugin
 ```
 
-This installs all 22 bundled skills including the full ponytail suite, grillme, and karpathy-guidelines.
+This installs all 21 bundled skills including the full ponytail suite, grillme, and karpathy-guidelines.
 
 ---
 
@@ -123,17 +123,17 @@ If the vault was created before v1.3.0, `DEPENDENCIES.md` won't exist yet. Creat
 Then add your installed dependencies:
 
 ```bash
-bash engine/bin/vault-deps ~/vault add vault v1.3.3 https://github.com/mateffy/vault-plugin --type skill
-bash engine/bin/vault-deps ~/vault add okf "v0.1 ee67a5c" https://github.com/GoogleCloudPlatform/knowledge-catalog --type spec
-bash engine/bin/vault-deps ~/vault add graphify v0.9.5 https://github.com/safishamsi/graphify --type tool
-bash engine/bin/vault-deps ~/vault add ponytail v4.8.4 https://github.com/DietrichGebert/ponytail --type skill
-bash engine/bin/vault-deps ~/vault add grillme f9df31c https://github.com/Jekudy/grillme-skill --type skill
-bash engine/bin/vault-deps ~/vault add karpathy-guidelines 1b69b2e https://github.com/Jing-Fu/karpathy-guidelines-skill --type skill
-bash engine/bin/vault-deps ~/vault add uv v0.11.26 https://github.com/astral-sh/uv --type tool
-bash engine/bin/vault-deps ~/vault add claude-code v2.1.159 https://github.com/anthropics/claude-code --type tool
-bash engine/bin/vault-deps ~/vault add bash 5.3.9 https://github.com/bminor/bash --type tool
-bash engine/bin/vault-deps ~/vault add git 2.54.0 https://github.com/git/git --type tool
-bash engine/bin/vault-deps ~/vault add python 3.13.14 https://github.com/python/cpython --type tool
+bash engine/bin/vault-deps ~/vault add vault https://github.com/mateffy/vault-plugin v1.3.5 --type skill
+bash engine/bin/vault-deps ~/vault add okf https://github.com/GoogleCloudPlatform/knowledge-catalog "v0.1 ee67a5c" --type spec
+bash engine/bin/vault-deps ~/vault add graphify https://github.com/safishamsi/graphify v0.9.5 --type tool
+bash engine/bin/vault-deps ~/vault add ponytail https://github.com/DietrichGebert/ponytail v4.8.4 --type skill
+bash engine/bin/vault-deps ~/vault add grillme https://github.com/Jekudy/grillme-skill f9df31c --type skill
+bash engine/bin/vault-deps ~/vault add karpathy-guidelines https://github.com/Jing-Fu/karpathy-guidelines-skill 1b69b2e --type skill
+bash engine/bin/vault-deps ~/vault add uv https://github.com/astral-sh/uv v0.11.26 --type tool
+bash engine/bin/vault-deps ~/vault add claude-code https://github.com/anthropics/claude-code v2.1.159 --type tool
+bash engine/bin/vault-deps ~/vault add bash https://github.com/bminor/bash 5.3.9 --type tool
+bash engine/bin/vault-deps ~/vault add git https://github.com/git/git 2.54.0 --type tool
+bash engine/bin/vault-deps ~/vault add python https://github.com/python/cpython 3.13.14 --type tool
 ```
 
 ---
@@ -163,7 +163,7 @@ To update graphify:
 ```bash
 uv tool upgrade graphifyy
 graphify --version
-bash engine/bin/vault-deps ~/vault update graphify <new-version>
+bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-deps" ~/vault update graphify <new-version>
 ```
 
 ---

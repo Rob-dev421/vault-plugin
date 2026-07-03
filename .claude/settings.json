@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // \"\"' | grep -q '\\.claude-plugin/plugin\\.json$' && cd \"C:/Users/C5414552/Desktop/vault-plugin\" && git add -A && git commit -m \"chore: bump version to $(jq -r .version .claude-plugin/plugin.json)\" && git push origin master || true",
+            "statusMessage": "Pushing version bump to GitHub..."
+          }
+        ]
+      }
+    ]
+  }
+}

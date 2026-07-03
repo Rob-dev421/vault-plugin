@@ -69,17 +69,14 @@ $([ -n "$sample_title" ] && echo "  Example: \"$sample_title\"" || true)
 
 1. Install the pre-commit hook (blocks non-conformant commits):
 
-   bash engine/bin/install-hook
+   Ask Claude to run /vault-init, or install manually:
+   bash "${CLAUDE_PLUGIN_ROOT}/bin/install-hook" ~/vault
 
    Note: requires Git Bash or WSL on Windows.
 
 2. Run a status check:
 
-   bash engine/bin/vault-status $VAULT_ROOT
-
-3. Read IMPLEMENTATION_PLAN.md for architecture details:
-
-   engine/docs/IMPLEMENTATION_PLAN.md
+   /vault-status
 EOF
 
 # Append graphify section if installed

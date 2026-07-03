@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.3.6 — 2026-07-03
+
+Fresh install audit — 12 findings fixed (3 blockers, 5 warnings, 4 stale).
+
+### Fixed (blockers)
+
+- `INSTALL.md` — vault-deps add examples had `<version>` and `<gh-url>` swapped; all 11 entries corrected to `add <name> <gh-url> <version>`
+- `bin/vault-init` — git commit silently failed on unconfigured machines; now sets `user.email=vault@local` and `user.name=Vault` as local fallback if no global identity exists
+- `skills/vault-synthesize/SKILL.md` — `allowed-tools` missing `vault-index`; step 6 (regenerate indexes) would prompt for permission or silently skip in restrictive mode
+
+### Fixed (warnings)
+
+- `bin/vault-init` — now creates `DEPENDENCIES.md` with vault + okf entries on init; fresh vault no longer immediately fails RULE-030
+- `bin/vault-onboard` — removed `engine/bin/install-hook` and non-existent `engine/docs/IMPLEMENTATION_PLAN.md` references; replaced with correct `${CLAUDE_PLUGIN_ROOT}` paths
+- `skills/vault-review/SKILL.md` — fixed `engine/bin/` references to `${CLAUDE_PLUGIN_ROOT}/bin/`
+- `bin/vault-validate` — removed stale `--layer` flag from script header comment
+
+### Fixed (stale docs)
+
+- `skills/vault-validate/SKILL.md` — added RULE-020 and RULE-021 to rules table; removed `engine/bin/install-hook` reference
+- `skills/vault-ingest/SKILL.md`, `vault-process/SKILL.md`, `vault-graphify/SKILL.md`, `vault-index/SKILL.md`, `vault-audit/SKILL.md` — Shell usage blocks updated from `engine/bin/` to `${CLAUDE_PLUGIN_ROOT}/bin/`
+- `INSTALL.md` — corrected skill count 22→21; fixed graphify update command path
+
+---
+
+## v1.3.5 — 2026-07-03
+
+Auto-update graphify on every file change via vault project hook.
+
+### Changed
+
+- `bin/vault-init` — writes `.claude/settings.json` into every new vault with:
+  - `PostToolUse` hook on `Write|Edit`: runs `graphify update .` async after every
+    file change so the knowledge graph is never stale (uses graphify auto-detected
+    from common install paths)
+  - `PreToolUse` hook on `Bash`: nudges toward `graphify query` before raw grep
+    when graph.json exists (carried over from existing vault hook pattern)
+
+---
+
 ## v1.3.4 — 2026-07-03
 
 Add installation guide with ordered dependency setup.

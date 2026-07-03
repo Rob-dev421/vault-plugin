@@ -6,7 +6,7 @@ description: >
   "/vault-synthesize". Claude reads source concepts and writes wiki entries
   directly using OKF rules. Shell finalize handles log updates.
 user-invocable: true
-allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/bin/vault-synthesize-finalize:*)"]
+allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/bin/vault-synthesize-finalize:*)", "Bash(${CLAUDE_PLUGIN_ROOT}/bin/vault-index:*)"]
 ---
 
 # vault-synthesize

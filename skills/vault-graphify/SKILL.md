@@ -20,10 +20,10 @@ Builds or incrementally updates the graphify knowledge graph over the vault's
 
 ```bash
 # Incremental update (AST-only, no API cost — run after any vault-synthesize)
-bash engine/bin/vault-graphify <vault-root>
+bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-graphify" <vault-root>
 
 # Full rebuild (semantic extraction, uses LLM API — run when graph is stale)
-bash engine/bin/vault-graphify <vault-root> --full
+bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-graphify" <vault-root> --full
 ```
 
 ## What it produces

@@ -20,10 +20,10 @@ Pre-commit validation gate. Blocks non-conformant contributions.
 git commit  # hook runs vault-review on staged files
 
 # Manually
-git diff --cached --name-only | bash engine/bin/vault-review <vault-root>
+git diff --cached --name-only | bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-review" <vault-root>
 
 # On specific files
-echo "sources/slug/concept.md" | bash engine/bin/vault-review <vault-root>
+echo "sources/slug/concept.md" | bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-review" <vault-root>
 ```
 
 ## Checks
@@ -46,7 +46,7 @@ entry for every session that modifies bin/, lib/, skills/, or templates/.
 Install the pre-commit hook once per clone:
 
 ```bash
-bash engine/bin/install-hook
+bash "${CLAUDE_PLUGIN_ROOT}/bin/install-hook"
 ```
 
 Windows requires Git Bash or WSL for hooks to work.

@@ -14,7 +14,7 @@ allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/bin/vault-audit:*)"]
 Deep health sweep. Reports issues by category.
 
 ```bash
-bash engine/bin/vault-audit <vault-root>
+bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-audit" <vault-root>
 ```
 
 ## Checks

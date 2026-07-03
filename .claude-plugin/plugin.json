@@ -1,6 +1,6 @@
 {
   "name": "vault",
-  "version": "1.3.4",
+  "version": "1.3.6",
   "description": "OKF knowledge vault — inbox → sources → wiki pipeline. Run /vault-init to create your personal vault in one step.",
   "author": {
     "name": "Robert Mateffy",

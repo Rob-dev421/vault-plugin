@@ -17,7 +17,7 @@ Creates a tracked inbox item from a raw file and immediately processes it.
 ## Shell usage
 
 ```bash
-bash engine/bin/vault-ingest <vault-root> <file-path>
+bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-ingest" <vault-root> <file-path>
 ```
 
 ## What it does

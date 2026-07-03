@@ -56,12 +56,14 @@ bash engine/bin/vault-validate sources/slug/concept.md
 | RULE-011 | ERROR | `input.md` `status` not in [pending, processed, failed] |
 | RULE-012 | WARNING | `spawned:` path does not resolve in bundle |
 | RULE-013 | WARNING | `transcript.md` has `type` field (reserved file) |
+| RULE-020 | ERROR | `transcript.md` missing required `source_file` field |
+| RULE-021 | ERROR | `transcript.md` missing required `source_type` field |
 | RULE-030 | ERROR | vault root missing `DEPENDENCIES.md` |
 | RULE-030 | WARNING | `DEPENDENCIES.md` exists but has no entries |
 
 ## When to run
 
-- Before every commit (via pre-commit hook — installed by `engine/bin/install-hook`)
+- Before every commit (via pre-commit hook — installed by `/vault-init`)
 - After running `vault-process` or `vault-synthesize`
 - As part of `vault-review` contribution gate
 

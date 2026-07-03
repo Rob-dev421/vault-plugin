@@ -16,10 +16,10 @@ Regenerates `index.md` files deterministically for navigation.
 
 ```bash
 # Regenerate all indexes in vault
-bash engine/bin/vault-index <vault-root>
+bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-index" <vault-root>
 
 # Regenerate for a specific directory
-bash engine/bin/vault-index <vault-root> <directory>
+bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-index" <vault-root> <directory>
 ```
 
 ## Rules enforced

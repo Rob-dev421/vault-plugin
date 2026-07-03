@@ -147,8 +147,58 @@ graphify-out/
 **/transcript.md
 EOF
 
+# ── .claude/settings.json — vault project hooks ───────────────────────────
+mkdir -p "$VAULT_ROOT/.claude"
+cat > "$VAULT_ROOT/.claude/settings.json" <<'EOF'
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "GRAPHIFY=$(find \"$HOME/.local/bin\" \"$HOME/AppData/Roaming/uv/tools/graphifyy/Scripts\" /usr/local/bin 2>/dev/null -name 'graphify*' -type f | head -1); [ -n \"$GRAPHIFY\" ] && cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && \"$GRAPHIFY\" update . > /tmp/graphify-vault-update.log 2>&1 || true",
+            "statusMessage": "Updating vault knowledge graph...",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CMD=$(python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get('tool_input',d).get('command',''))\" 2>/dev/null || true); case \"$CMD\" in *grep*|*rg\\ *|*find\\ *) [ -f graphify-out/graph.json ] && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"graphify-out/graph.json exists. Run graphify query before grepping raw files.\"}}' || true ;; esac"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+
+# ── DEPENDENCIES.md — initial dependency record ───────────────────────────
+cat > "$VAULT_ROOT/DEPENDENCIES.md" <<EOF
+# Dependencies
+
+All skills, tools, and specifications required by this vault.
+
+| Name | Type | Version | GH URL | Installed |
+|------|------|---------|--------|-----------|
+| vault | skill | $(grep '"version"' "$PLUGIN_DIR/.claude-plugin/plugin.json" 2>/dev/null | head -1 | sed 's/.*"\([0-9.]*\)".*/v\1/' || echo "unknown") | https://github.com/mateffy/vault-plugin | $(date -u +"%Y-%m-%d") |
+| okf | spec | v0.1 ee67a5c | https://github.com/GoogleCloudPlatform/knowledge-catalog | $(date -u +"%Y-%m-%d") |
+EOF
+
 # ── Git init + initial commit ─────────────────────────────────────────────
 git -C "$VAULT_ROOT" init -q
+# Ensure git has an identity — use vault defaults if not configured globally
+if ! git -C "$VAULT_ROOT" config user.email &>/dev/null; then
+  git -C "$VAULT_ROOT" config user.email "vault@local"
+  git -C "$VAULT_ROOT" config user.name "Vault"
+fi
 git -C "$VAULT_ROOT" add -A
 git -C "$VAULT_ROOT" commit -q -m "chore: vault initialized by vault-plugin v1.0.0"
 

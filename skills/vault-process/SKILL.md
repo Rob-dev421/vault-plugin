@@ -61,7 +61,7 @@ Tags are the `tags:` frontmatter values joined with `, `.
 
 5. Call `bin/vault-process-finalize` as the final step:
    ```bash
-   bash engine/bin/vault-process-finalize \
+   bash "${CLAUDE_PLUGIN_ROOT}/bin/vault-process-finalize" \
      <inbox-item-path> \
      <sources-slug-path> \
      <concept1.md> <concept2.md> ...

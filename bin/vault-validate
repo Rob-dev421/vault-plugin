@@ -1,6 +1,6 @@
 #!/bin/bash
 # bin/vault-validate
-# Usage: vault-validate <path> [--layer <layer>]
+# Usage: vault-validate <path>
 # Runs OKF conformance check and outputs a structured report.
 # Exit: 0 = no errors; 1 = errors found
 
