@@ -1,0 +1,110 @@
+#!/bin/bash
+# bin/vault-process-finalize
+# Usage: vault-process-finalize <inbox-item-path> <sources-slug-path> [concept-files...]
+# Called by vault-process SKILL as last step after Claude writes concept files.
+# Updates spawned: list, sets status, writes sources/log.md entry.
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/frontmatter.sh"
+source "$SCRIPT_DIR/../lib/log.sh"
+
+INBOX_ITEM="${1:?Usage: vault-process-finalize <inbox-item-path> <sources-path> [concepts...]}"
+SOURCES_PATH="${2:?Usage: vault-process-finalize <inbox-item-path> <sources-path> [concepts...]}"
+shift 2
+CONCEPT_FILES=("$@")
+
+INPUT_MD="$INBOX_ITEM/input.md"
+VAULT_ROOT="$(cd "$INBOX_ITEM/../.." && pwd)"
+SOURCES_DIR="$(cd "$VAULT_ROOT/sources" && pwd)"
+
+if [[ ! -f "$INPUT_MD" ]]; then
+  echo "Error: input.md not found at $INPUT_MD" >&2
+  exit 1
+fi
+
+# ── Determine status based on concepts found ──────────────────────────────
+if [[ ${#CONCEPT_FILES[@]} -eq 0 ]]; then
+  set_field "$INPUT_MD" "status" "failed"
+  log_append "$VAULT_ROOT" "$SOURCES_DIR/log.md" "Processing failed — no concepts extracted" ""
+  echo "Processing failed: no concepts extracted from $INBOX_ITEM"
+  exit 0
+fi
+
+# ── Build spawned list, respecting manual edits ───────────────────────────
+ITEM_MTIME=$(py -3 -c "import os; print(os.path.getmtime('$INPUT_MD'))" 2>/dev/null || echo "0")
+
+new_spawned=()
+skipped=()
+for concept in "${CONCEPT_FILES[@]}"; do
+  [[ -f "$concept" ]] || continue
+  # Get bundle-relative path
+  rel_path="${concept#$VAULT_ROOT}"
+  [[ "$rel_path" != /* ]] && rel_path="/$rel_path"
+
+  # Check if already in spawned list
+  if grep -q "$rel_path" "$INPUT_MD" 2>/dev/null; then
+    # Check manual edit preservation: if concept is newer than input.md, skip overwrite
+    CONCEPT_MTIME=$(py -3 -c "import os; print(os.path.getmtime('$concept'))" 2>/dev/null || echo "0")
+    skip=$(py -3 -c "print('yes' if float('$CONCEPT_MTIME') > float('$ITEM_MTIME') else 'no')" 2>/dev/null || echo "no")
+    if [[ "$skip" == "yes" ]]; then
+      skipped+=("$rel_path")
+      echo "Preserving manually edited: $rel_path" >&2
+    fi
+    continue
+  fi
+  new_spawned+=("$rel_path")
+done
+
+# ── Write spawned list to input.md ────────────────────────────────────────
+py -3 - "$INPUT_MD" "${new_spawned[@]+"${new_spawned[@]}"}" <<'PYEOF'
+import sys, re
+
+filepath = sys.argv[1]
+new_paths = sys.argv[2:]
+content = open(filepath, encoding='utf-8').read()
+
+if not content.startswith('---'):
+    sys.exit(1)
+end = content.find('\n---', 3)
+fm_block = content[3:end]
+body = content[end:]
+
+# Build or extend spawned list
+spawned_match = re.search(r'^spawned:.*?(?=\n\S|\Z)', fm_block, re.MULTILINE | re.DOTALL)
+existing_paths = []
+if spawned_match:
+    for line in spawned_match.group(0).splitlines()[1:]:
+        m = re.match(r'^\s+-\s+(.*)', line)
+        if m: existing_paths.append(m.group(1).strip())
+
+all_paths = existing_paths + [p for p in new_paths if p not in existing_paths]
+
+if not all_paths:
+    open(filepath, 'w', encoding='utf-8').write(content)
+    sys.exit(0)
+
+spawned_yaml = 'spawned:\n' + '\n'.join(f'  - {p}' for p in all_paths)
+
+if spawned_match:
+    fm_block = fm_block[:spawned_match.start()] + spawned_yaml + fm_block[spawned_match.end():]
+else:
+    fm_block = fm_block.rstrip('\n') + '\n' + spawned_yaml
+
+open(filepath, 'w', encoding='utf-8').write('---' + fm_block + body)
+PYEOF
+
+# ── Set status = processed ────────────────────────────────────────────────
+set_field "$INPUT_MD" "status" "processed"
+
+# ── Write sources/log.md entries ──────────────────────────────────────────
+for concept in "${CONCEPT_FILES[@]}"; do
+  [[ -f "$concept" ]] || continue
+  rel_path="${concept#$VAULT_ROOT}"
+  [[ "$rel_path" != /* ]] && rel_path="/$rel_path"
+  concept_name=$(basename "$concept" .md)
+  log_append "$VAULT_ROOT" "$SOURCES_DIR/log.md" "Extracted concept: $concept_name" "$rel_path"
+done
+
+echo "Processed: ${#CONCEPT_FILES[@]} concepts extracted"

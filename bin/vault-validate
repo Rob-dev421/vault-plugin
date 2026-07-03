@@ -1,0 +1,123 @@
+#!/bin/bash
+# bin/vault-validate
+# Usage: vault-validate <path> [--layer <layer>]
+# Runs OKF conformance check and outputs a structured report.
+# Exit: 0 = no errors; 1 = errors found
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_VALIDATE="$SCRIPT_DIR/../lib/validate.sh"
+STATE_FILE=""
+
+# Parse args
+TARGET="${1:-.}"
+LAYER_FILTER=""
+shift || true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --layer) shift; LAYER_FILTER="${1:-}"; shift ;;
+    *) shift ;;
+  esac
+done
+
+# Locate .vault-state.json if we're in a vault
+if [[ -f "$TARGET/.vault" || -f "$TARGET/../.vault" ]]; then
+  VAULT_ROOT="$TARGET"
+  [[ -f "$TARGET/../.vault" ]] && VAULT_ROOT="$(cd "$TARGET/.." && pwd)"
+  STATE_FILE="$VAULT_ROOT/.vault-state.json"
+fi
+
+# Run validation and capture output
+raw_output=$(bash "$LIB_VALIDATE" "$TARGET" 2>&1) || true
+validate_exit=$?
+
+# Count findings by severity
+error_count=$(echo "$raw_output" | grep -c "^ERROR" 2>/dev/null || true)
+warn_count=$(echo "$raw_output" | grep -c "^WARNING" 2>/dev/null || true)
+[[ -z "$raw_output" ]] && error_count=0 && warn_count=0
+
+# Apply layer filter if specified
+if [[ -n "$LAYER_FILTER" ]]; then
+  # For now stub: run all rules but only show findings mentioning the layer path
+  # Full layer-group filtering implemented in T1.1+
+  :
+fi
+
+# Format structured report
+echo "# OKF Validation Report"
+echo ""
+echo "## Summary"
+echo ""
+echo "- Errors: $error_count"
+echo "- Warnings: $warn_count"
+echo "- Path: $TARGET"
+echo ""
+
+if [[ -n "$raw_output" ]]; then
+  errors=$(echo "$raw_output" | grep "^ERROR" || true)
+  warnings=$(echo "$raw_output" | grep "^WARNING" || true)
+
+  echo "## Errors"
+  echo ""
+  if [[ -n "$errors" ]]; then
+    echo "$errors" | while IFS= read -r line; do echo "- $line"; done
+  else
+    echo "_None_"
+  fi
+  echo ""
+
+  echo "## Warnings"
+  echo ""
+  if [[ -n "$warnings" ]]; then
+    echo "$warnings" | while IFS= read -r line; do echo "- $line"; done
+  else
+    echo "_None_"
+  fi
+  echo ""
+
+  echo "## Recommendations"
+  echo ""
+  if [[ $error_count -gt 0 ]]; then
+    echo "- Fix all ERROR findings before committing or sharing this vault."
+    echo "- Run \`/open-knowledge-format\` validate for a richer interactive report."
+  else
+    echo "- Run \`/open-knowledge-format\` validate for quality recommendations beyond conformance."
+  fi
+else
+  echo "## Errors"
+  echo ""
+  echo "_None_"
+  echo ""
+  echo "## Warnings"
+  echo ""
+  echo "_None_"
+  echo ""
+  echo "## Recommendations"
+  echo ""
+  echo "- Vault is conformant with OKF v0.1."
+  echo "- Run \`/open-knowledge-format\` validate for quality recommendations."
+fi
+
+# Write last-run timestamp to .vault-state.json
+if [[ -n "$STATE_FILE" ]]; then
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  if [[ -f "$STATE_FILE" ]]; then
+    py -3 - "$STATE_FILE" "$timestamp" <<'PYEOF' 2>/dev/null || true
+import json, sys
+f, ts = sys.argv[1], sys.argv[2]
+d = json.load(open(f))
+d['last_validate'] = ts
+json.dump(d, open(f, 'w'), indent=2)
+PYEOF
+  else
+    py -3 - "$STATE_FILE" "$timestamp" <<'PYEOF' 2>/dev/null || true
+import json, sys
+f, ts = sys.argv[1], sys.argv[2]
+json.dump({'last_validate': ts}, open(f, 'w'), indent=2)
+PYEOF
+  fi
+fi
+
+# 0 errors on valid vault → 0 errors reported → report says "0 errors"
+[[ $error_count -eq 0 ]]

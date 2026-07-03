@@ -1,0 +1,60 @@
+#!/bin/bash
+# bin/vault-freshness
+# Usage: vault-freshness <vault-root> [--check-resources]
+# Detects source concepts with timestamps older than their inbox item.
+# READ-ONLY — never modifies any file.
+
+set -uo pipefail
+
+VAULT_ROOT="${1:-$HOME/vault}"
+CHECK_RESOURCES=false
+[[ "${2:-}" == "--check-resources" ]] && CHECK_RESOURCES=true
+
+INBOX_DIR="$VAULT_ROOT/inbox"
+SOURCES_DIR="$VAULT_ROOT/sources"
+
+stale_found=0
+
+if [[ -d "$SOURCES_DIR" ]]; then
+  while IFS= read -r -d '' concept; do
+    [[ "$(basename "$concept")" =~ ^(index|log|transcript)\.md$ ]] && continue
+
+    # Get derived_from to find the inbox item
+    derived=$(grep "^derived_from:" "$concept" 2>/dev/null | head -1 | sed 's/^derived_from:[ \t]*//')
+    [[ -z "$derived" ]] && continue
+
+    inbox_item="$VAULT_ROOT${derived}"
+    [[ ! -f "$inbox_item" ]] && continue
+
+    # Compare concept timestamp vs inbox item mtime
+    is_stale=$(py -3 - "$concept" "$inbox_item" <<'PYEOF' 2>/dev/null || echo "no"
+import sys, os
+concept_path, inbox_path = sys.argv[1], sys.argv[2]
+
+import re
+concept_content = open(concept_path, encoding='utf-8').read()
+inbox_content = open(inbox_path, encoding='utf-8').read()
+
+def get_ts(content):
+    m = re.search(r'^timestamp:[ \t]*([^\n]+)$', content, re.MULTILINE)
+    return m.group(1).strip() if m else ''
+
+concept_ts = get_ts(concept_content)
+inbox_ts = get_ts(inbox_content)
+
+if concept_ts and inbox_ts and concept_ts < inbox_ts:
+    print("yes")
+else:
+    print("no")
+PYEOF
+    )
+
+    if [[ "$is_stale" == "yes" ]]; then
+      echo "stale: concept timestamp predates inbox item — $concept"
+      stale_found=$((stale_found + 1))
+    fi
+  done < <(find "$SOURCES_DIR" -name "*.md" -print0 2>/dev/null)
+fi
+
+[[ $stale_found -eq 0 ]] && echo "All concepts are fresh."
+exit 0

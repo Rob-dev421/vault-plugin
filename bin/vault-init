@@ -1,0 +1,174 @@
+#!/bin/bash
+# bin/vault-init
+# Creates ~/vault with full OKF structure, git init, and pre-commit hook.
+# Usage: vault-init <plugin-dir>
+# Called by vault-init skill with ${CLAUDE_PLUGIN_ROOT} as the argument.
+
+set -uo pipefail
+
+PLUGIN_DIR="${1:?vault-init requires plugin directory as first argument}"
+VAULT_ROOT="${HOME}/vault"
+
+# ── Platform notice ────────────────────────────────────────────────────────
+if [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" ]]; then
+  echo "Windows detected (Git Bash). Proceeding..."
+fi
+
+# ── Idempotent: vault already exists ──────────────────────────────────────
+if [[ -f "$VAULT_ROOT/.vault" ]]; then
+  echo "Vault already exists at $VAULT_ROOT"
+  echo "Run /vault-status to check its current state."
+  exit 0
+fi
+
+# ── Create OKF layer directories ──────────────────────────────────────────
+mkdir -p \
+  "$VAULT_ROOT/inbox" \
+  "$VAULT_ROOT/sources" \
+  "$VAULT_ROOT/wiki/concepts" \
+  "$VAULT_ROOT/wiki/projects"
+
+# ── Vault marker ──────────────────────────────────────────────────────────
+echo "vault" > "$VAULT_ROOT/.vault"
+
+# ── vault.json — engine points to this plugin's directory ─────────────────
+cat > "$VAULT_ROOT/vault.json" <<EOF
+{
+  "okf_version": "0.1",
+  "engine": "$PLUGIN_DIR",
+  "stale_inbox_days": 7,
+  "layers": {
+    "inbox": "inbox",
+    "sources": "sources",
+    "wiki": "wiki"
+  }
+}
+EOF
+
+# ── OKF bundle root index ─────────────────────────────────────────────────
+cat > "$VAULT_ROOT/index.md" <<'EOF'
+---
+okf_version: "0.1"
+---
+
+# Vault
+
+Knowledge vault following the Open Knowledge Format (OKF) v0.1.
+
+## Layers
+
+- [Inbox](./inbox/index.md) — raw inputs pending processing
+- [Sources](./sources/index.md) — OKF concepts extracted from inbox
+- [Wiki](./wiki/index.md) — curated knowledge synthesized from sources
+EOF
+
+cat > "$VAULT_ROOT/log.md" <<EOF
+# Vault Update Log
+
+## $(date +%Y-%m-%d)
+
+- **Initialization**: Vault created by vault-plugin.
+EOF
+
+# ── Inbox index ───────────────────────────────────────────────────────────
+cat > "$VAULT_ROOT/inbox/index.md" <<'EOF'
+# Inbox
+
+Raw inputs awaiting processing. Each item is a dated directory.
+Status: `pending` | `processed` | `failed`
+EOF
+cat > "$VAULT_ROOT/inbox/log.md" <<EOF
+# Inbox Update Log
+
+## $(date +%Y-%m-%d)
+
+- **Initialization**: Inbox layer created.
+EOF
+
+# ── Sources index ─────────────────────────────────────────────────────────
+cat > "$VAULT_ROOT/sources/index.md" <<'EOF'
+# Sources
+
+OKF concept documents extracted from inbox items.
+Each concept links back to its origin via `derived_from:` frontmatter.
+EOF
+cat > "$VAULT_ROOT/sources/log.md" <<EOF
+# Sources Update Log
+
+## $(date +%Y-%m-%d)
+
+- **Initialization**: Sources layer created.
+EOF
+
+# ── Wiki index ────────────────────────────────────────────────────────────
+cat > "$VAULT_ROOT/wiki/index.md" <<'EOF'
+# Wiki
+
+Curated knowledge synthesized from sources.
+
+## Sections
+
+- [Concepts](./concepts/index.md) — domain concepts and definitions
+- [Projects](./projects/index.md) — active and completed projects
+EOF
+cat > "$VAULT_ROOT/wiki/log.md" <<EOF
+# Wiki Update Log
+
+## $(date +%Y-%m-%d)
+
+- **Initialization**: Wiki layer created.
+EOF
+cat > "$VAULT_ROOT/wiki/concepts/index.md" <<'EOF'
+# Concepts
+EOF
+cat > "$VAULT_ROOT/wiki/projects/index.md" <<'EOF'
+# Projects
+EOF
+
+# ── .gitignore ────────────────────────────────────────────────────────────
+cat > "$VAULT_ROOT/.gitignore" <<'EOF'
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+*.zip
+*.tar.gz
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mp3
+.vault-state.json
+EOF
+
+# ── Git init + initial commit ─────────────────────────────────────────────
+git -C "$VAULT_ROOT" init -q
+git -C "$VAULT_ROOT" add -A
+git -C "$VAULT_ROOT" commit -q -m "chore: vault initialized by vault-plugin v1.0.0"
+
+# ── Pre-commit hook (calls vault-review with vault root) ───────────────────
+HOOK_DIR="$VAULT_ROOT/.git/hooks"
+HOOK_FILE="$HOOK_DIR/pre-commit"
+cat > "$HOOK_FILE" <<HOOKEOF
+#!/bin/bash
+# vault pre-commit hook — installed by vault-plugin
+VAULT_ROOT="\$(git rev-parse --show-toplevel)"
+VAULT_REVIEW="$PLUGIN_DIR/bin/vault-review"
+if [[ ! -f "\$VAULT_REVIEW" ]]; then
+  echo "vault-review not found at \$VAULT_REVIEW — skipping" >&2
+  exit 0
+fi
+git diff --cached --name-only | bash "\$VAULT_REVIEW" "\$VAULT_ROOT"
+HOOKEOF
+chmod +x "$HOOK_FILE"
+
+# ── Done ──────────────────────────────────────────────────────────────────
+echo ""
+echo "Vault created at $VAULT_ROOT"
+echo "Git initialized and pre-commit hook installed."
+echo ""
+echo "Next steps:"
+echo "  /vault-ingest <file>  — add your first document"
+echo "  /vault-status         — check vault health"
+echo "  /vault-onboard        — full orientation"

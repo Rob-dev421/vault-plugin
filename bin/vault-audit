@@ -1,0 +1,86 @@
+#!/bin/bash
+# bin/vault-audit
+# Usage: vault-audit <vault-root>
+# Operational health sweep. Finds rot before it accumulates.
+# Exit: 0 always (informational). Writes last_audit to .vault-state.json.
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+VAULT_ROOT="${1:-$HOME/vault}"
+INBOX_DIR="$VAULT_ROOT/inbox"
+SOURCES_DIR="$VAULT_ROOT/sources"
+WIKI_DIR="$VAULT_ROOT/wiki"
+STATE_FILE="$VAULT_ROOT/.vault-state.json"
+
+# Read stale threshold from vault.json (default 7)
+STALE_DAYS=$(py -3 - "$VAULT_ROOT/vault.json" <<'PYEOF' 2>/dev/null || echo "7"
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(d.get('stale_inbox_days', 7))
+PYEOF
+)
+
+issues=()
+
+# ── Stale pending inbox items ─────────────────────────────────────────────
+if [[ -d "$INBOX_DIR" ]]; then
+  while IFS= read -r input_md; do
+    status=$(grep "^status:" "$input_md" 2>/dev/null | head -1 | sed 's/^status:[ \t]*//')
+    [[ "$status" != "pending" ]] && continue
+    age_days=$(py -3 - "$input_md" "$STALE_DAYS" <<'PYEOF' 2>/dev/null || echo "0"
+import sys, os, time
+path, threshold = sys.argv[1], int(sys.argv[2])
+mtime = os.path.getmtime(path)
+age = (time.time() - mtime) / 86400
+print(int(age) if age > threshold else 0)
+PYEOF
+    )
+    if [[ "$age_days" -gt 0 ]]; then
+      issues+=("WARN  stale pending item (${age_days}d old): $input_md")
+    fi
+  done < <(find "$INBOX_DIR" -name "input.md" 2>/dev/null)
+fi
+
+# ── confidence: low source concepts ──────────────────────────────────────
+if [[ -d "$SOURCES_DIR" ]]; then
+  while IFS= read -r -d '' f; do
+    [[ "$(basename "$f")" == "transcript.md" ]] && continue
+    if grep -q "^confidence: low" "$f" 2>/dev/null; then
+      issues+=("WARN  confidence: low — needs review: $f")
+    fi
+  done < <(find "$SOURCES_DIR" -name "*.md" -not -name "index.md" -not -name "log.md" -print0 2>/dev/null)
+fi
+
+# ── orphaned source concepts (not referenced from wiki) ───────────────────
+if [[ -d "$SOURCES_DIR" && -d "$WIKI_DIR" ]]; then
+  while IFS= read -r -d '' f; do
+    [[ "$(basename "$f")" == "transcript.md" ]] && continue
+    rel="${f#$VAULT_ROOT}"
+    # Check if any wiki file references this path
+    referenced=$(grep -rl "$rel" "$WIKI_DIR" 2>/dev/null | head -1 || true)
+    if [[ -z "$referenced" ]]; then
+      issues+=("WARN  orphan source (not referenced from wiki): $f")
+    fi
+  done < <(find "$SOURCES_DIR" -name "*.md" -not -name "index.md" -not -name "log.md" -not -name "transcript.md" -print0 2>/dev/null)
+fi
+
+# ── Print results ─────────────────────────────────────────────────────────
+if [[ ${#issues[@]} -eq 0 ]]; then
+  echo "Clean. No issues found."
+else
+  for issue in "${issues[@]}"; do echo "$issue"; done
+fi
+
+# ── Write timestamp to .vault-state.json ─────────────────────────────────
+timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+py -3 - "$STATE_FILE" "$timestamp" <<'PYEOF' 2>/dev/null || true
+import json, sys, os
+f, ts = sys.argv[1], sys.argv[2]
+d = json.load(open(f)) if os.path.isfile(f) else {}
+d['last_audit'] = ts
+json.dump(d, open(f, 'w'), indent=2)
+PYEOF
+
+exit 0

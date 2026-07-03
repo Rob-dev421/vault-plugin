@@ -1,0 +1,53 @@
+#!/bin/bash
+# bin/vault-status
+# Usage: vault-status <vault-root>
+# Lightweight health summary ≤ 20 lines. Always exits 0.
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+VAULT_ROOT="${1:-$HOME/vault}"
+STATE_FILE="$VAULT_ROOT/.vault-state.json"
+INBOX_DIR="$VAULT_ROOT/inbox"
+
+# Count inbox items by status
+pending=0; failed=0; processed=0
+if [[ -d "$INBOX_DIR" ]]; then
+  while IFS= read -r input_md; do
+    status=$(grep "^status:" "$input_md" 2>/dev/null | head -1 | sed 's/^status:[ \t]*//')
+    case "$status" in
+      pending)   pending=$((pending + 1)) ;;
+      failed)    failed=$((failed + 1)) ;;
+      processed) processed=$((processed + 1)) ;;
+    esac
+  done < <(find "$INBOX_DIR" -name "input.md" 2>/dev/null)
+fi
+
+# Read last-run timestamps
+last_validate="—"
+last_audit="—"
+if [[ -f "$STATE_FILE" ]]; then
+  last_validate=$(py -3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('last_validate','—'))" 2>/dev/null || echo "—")
+  last_audit=$(py -3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('last_audit','—'))" 2>/dev/null || echo "—")
+fi
+
+echo "# Vault Status"
+echo ""
+echo "## Inbox"
+echo "- pending: $pending"
+echo "- failed:  $failed"
+echo "- processed: $processed"
+echo ""
+echo "## Last runs"
+echo "- vault-validate: $last_validate"
+echo "- vault-audit:    $last_audit"
+echo ""
+echo "## Health"
+if [[ $pending -eq 0 && $failed -eq 0 ]]; then
+  echo "Clean."
+else
+  [[ $pending -gt 0 ]] && echo "- $pending item(s) awaiting processing"
+  [[ $failed -gt 0 ]]  && echo "- $failed item(s) failed — re-run vault-process"
+fi
+exit 0

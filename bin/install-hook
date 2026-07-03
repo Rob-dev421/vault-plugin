@@ -1,0 +1,32 @@
+#!/bin/bash
+# bin/install-hook
+# Installs (or re-installs) the vault pre-commit hook.
+# Idempotent: safe to run multiple times.
+# Run after fresh clone: bash engine/bin/install-hook
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VAULT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+HOOK_DIR="$VAULT_ROOT/.git/hooks"
+HOOK_FILE="$HOOK_DIR/pre-commit"
+
+if [[ ! -d "$HOOK_DIR" ]]; then
+  echo "Error: $HOOK_DIR not found. Run 'git init' first." >&2
+  exit 1
+fi
+
+cat > "$HOOK_FILE" <<'HOOK'
+#!/bin/bash
+# vault-engine pre-commit hook — installed by engine/bin/install-hook
+VAULT_ROOT="$(git rev-parse --show-toplevel)"
+VAULT_REVIEW="$VAULT_ROOT/engine/bin/vault-review"
+if [[ ! -f "$VAULT_REVIEW" ]]; then
+  echo "vault-review not found at $VAULT_REVIEW — skipping" >&2
+  exit 0
+fi
+git diff --cached --name-only | bash "$VAULT_REVIEW" "$VAULT_ROOT"
+HOOK
+
+chmod +x "$HOOK_FILE"
+echo "Pre-commit hook installed at $HOOK_FILE"

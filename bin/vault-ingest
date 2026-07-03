@@ -1,0 +1,60 @@
+#!/bin/bash
+# bin/vault-ingest
+# Usage: vault-ingest <vault-root> <file-path>
+# Creates a dated inbox item for a raw file. Idempotent.
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/slug.sh"
+source "$SCRIPT_DIR/../lib/frontmatter.sh"
+source "$SCRIPT_DIR/../lib/log.sh"
+
+VAULT_ROOT="${1:-$HOME/vault}"
+RAW_FILE="${2:?Usage: vault-ingest <vault-root> <file-path>}"
+
+if [[ ! -f "$RAW_FILE" ]]; then
+  echo "Error: file not found: $RAW_FILE" >&2
+  exit 1
+fi
+
+INBOX_DIR="$VAULT_ROOT/inbox"
+TODAY=$(date +%Y-%m-%d)
+FILENAME=$(basename "$RAW_FILE")
+SLUG=$(slug_from "${FILENAME%.*}")
+ITEM_DIR="$INBOX_DIR/${TODAY}-${SLUG}"
+
+# ── Idempotency: check if this file is already ingested ───────────────────
+existing=$(grep -rl "resource:.*${FILENAME}" "$INBOX_DIR" 2>/dev/null | head -1 || true)
+if [[ -n "$existing" ]]; then
+  echo "already ingested: $FILENAME (found at $existing)" >&2
+  exit 0
+fi
+
+# ── Create inbox item dir ─────────────────────────────────────────────────
+mkdir -p "$ITEM_DIR"
+
+# Copy raw file into the inbox item dir
+cp "$RAW_FILE" "$ITEM_DIR/$FILENAME"
+
+# ── Write input.md ────────────────────────────────────────────────────────
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+INPUT_MD="$ITEM_DIR/input.md"
+
+cat > "$INPUT_MD" <<FRONTMATTER
+---
+type: Raw Input
+status: pending
+resource: ./${FILENAME}
+timestamp: ${TIMESTAMP}
+---
+
+# ${FILENAME}
+
+Raw input pending processing. Ingested on ${TODAY}.
+FRONTMATTER
+
+# ── Update inbox/log.md ───────────────────────────────────────────────────
+log_append "$VAULT_ROOT" "$INBOX_DIR/log.md" "Ingested: $FILENAME" ""
+
+echo "Ingested: $FILENAME → $ITEM_DIR"
