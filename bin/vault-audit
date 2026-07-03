@@ -66,6 +66,31 @@ if [[ -d "$SOURCES_DIR" && -d "$WIKI_DIR" ]]; then
   done < <(find "$SOURCES_DIR" -name "*.md" -not -name "index.md" -not -name "log.md" -not -name "transcript.md" -print0 2>/dev/null)
 fi
 
+# ── Graph staleness check ─────────────────────────────────────────────────
+GRAPH_JSON="$VAULT_ROOT/graphify-out/graph.json"
+if command -v graphify &>/dev/null && [[ -f "$GRAPH_JSON" ]]; then
+  stale=$(py -3 - "$GRAPH_JSON" "$VAULT_ROOT" <<'PYEOF' 2>/dev/null || echo "0"
+import sys, os, glob
+graph_mtime = os.path.getmtime(sys.argv[1])
+vault_root = sys.argv[2]
+# Find newest OKF concept file across sources/ and wiki/
+newest = 0.0
+for layer in ('sources', 'wiki'):
+  for md in glob.glob(os.path.join(vault_root, layer, '**', '*.md'), recursive=True):
+    base = os.path.basename(md)
+    if base in ('index.md', 'log.md', 'transcript.md'):
+      continue
+    mtime = os.path.getmtime(md)
+    if mtime > newest:
+      newest = mtime
+print('1' if newest > graph_mtime else '0')
+PYEOF
+  )
+  if [[ "$stale" == "1" ]]; then
+    issues+=("WARN  knowledge graph is stale — run /vault-graphify to update (graphify-out/graph.json)")
+  fi
+fi
+
 # ── Print results ─────────────────────────────────────────────────────────
 if [[ ${#issues[@]} -eq 0 ]]; then
   echo "Clean. No issues found."

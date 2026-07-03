@@ -13,12 +13,6 @@ _emit() {
   [[ "$severity" == "ERROR" ]] && _VALIDATE_ERRORS=$((_VALIDATE_ERRORS + 1))
 }
 
-_is_reserved() {
-  local name
-  name="$(basename "$1")"
-  [[ "$name" == "index.md" || "$name" == "log.md" || "$name" == "transcript.md" ]]
-}
-
 _check_file() {
   local filepath="$1" bundle_root="$2"
 
@@ -200,7 +194,7 @@ _validate_path() {
     bundle_root="$target"
     while IFS= read -r -d '' f; do
       _check_file "$f" "$bundle_root"
-    done < <(find "$target" -name "*.md" -type f -print0 | sort -z)
+    done < <(find "$target" -name "*.md" -type f -not -path "*/graphify-out/*" -print0 | sort -z)
   else
     echo "validate.sh: path not found: $target" >&2
     exit 2
@@ -209,6 +203,22 @@ _validate_path() {
 
 # Main
 _validate_path "${1:-.}"
+
+# ── RULE-030: DEPENDENCIES.md must exist and have entries ────────────────
+# Only check when validating a vault root (has .vault marker)
+_target="${1:-.}"
+if [[ -d "$_target" && -f "$_target/.vault" ]]; then
+  _deps_file="$_target/DEPENDENCIES.md"
+  if [[ ! -f "$_deps_file" ]]; then
+    _emit "ERROR" "RULE-030" "$_deps_file" "DEPENDENCIES.md missing — run /vault-deps to create it"
+  else
+    _row_count=$(grep -c "^|" "$_deps_file" 2>/dev/null || echo "0")
+    _data_rows=$(( _row_count - 2 ))
+    if [[ "$_data_rows" -le 0 ]]; then
+      _emit "WARNING" "RULE-030" "$_deps_file" "DEPENDENCIES.md has no entries"
+    fi
+  fi
+fi
 
 # Sort and print findings deterministically
 IFS=$'\n' sorted=($(printf '%s\n' "${_VALIDATE_FINDINGS[@]}" | sort))

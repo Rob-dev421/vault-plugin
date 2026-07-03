@@ -1,0 +1,104 @@
+#!/bin/bash
+# bin/vault-graphify
+# Usage: vault-graphify <vault-root> [--full]
+#
+# Builds or incrementally updates the graphify knowledge graph for the vault.
+#
+# Modes:
+#   (default)  incremental — graphify update . (AST-only, no API cost)
+#   --full     full rebuild — graphify . --backend claude-cli (semantic extraction via Claude Code)
+#
+# Soft dependency: if graphify is not installed, prints an informational
+# message and exits 0. The vault works without graphify.
+#
+# On first run (no graphify-out/ exists), always does a full rebuild and
+# installs always-on Claude instructions via `graphify claude install`.
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/log.sh"
+
+VAULT_ROOT="${1:-$HOME/vault}"
+MODE="incremental"
+shift || true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --full) MODE="full"; shift ;;
+    *) shift ;;
+  esac
+done
+
+STATE_FILE="$VAULT_ROOT/.vault-state.json"
+GRAPH_OUT="$VAULT_ROOT/graphify-out"
+
+# ── Soft dependency check ─────────────────────────────────────────────────
+if ! command -v graphify &>/dev/null; then
+  echo "graphify not installed — skipping graph update."
+  echo "To enable: uv tool install graphifyy && graphify install"
+  exit 0
+fi
+
+# ── First-run detection ───────────────────────────────────────────────────
+FIRST_RUN=false
+if [[ ! -d "$GRAPH_OUT" ]]; then
+  FIRST_RUN=true
+  MODE="full"
+  echo "No graph found — running full build..."
+fi
+
+# ── Flags intentionally omitted ──────────────────────────────────────────
+# --wiki     generates graphify-out/wiki/ — conflicts with OKF wiki/ layer
+# --obsidian writes files directly into vault root — bypasses OKF structure
+# Never add these flags to the graphify calls below.
+# ── Run graphify ──────────────────────────────────────────────────────────
+cd "$VAULT_ROOT"
+if [[ "$MODE" == "full" ]]; then
+  graphify . --backend claude-cli
+else
+  graphify update .
+fi
+
+# ── First-run: install always-on Claude instructions ─────────────────────
+if $FIRST_RUN; then
+  graphify claude install 2>/dev/null || true
+  # Append OKF-aware context to the installed block
+  CLAUDE_MD="$VAULT_ROOT/CLAUDE.md"
+  if [[ -f "$CLAUDE_MD" ]] && ! grep -q "OKF Vault — graph semantics" "$CLAUDE_MD" 2>/dev/null; then
+    cat >> "$CLAUDE_MD" <<'EOF'
+
+<!-- vault-graphify: OKF Vault — graph semantics -->
+## graphify — OKF Vault
+
+Node semantics:
+- `sources/` nodes = extracted facts; check `confidence:` field (low|medium|high)
+- `wiki/` nodes = synthesized knowledge, higher authority than sources
+- `inbox/` is excluded from the graph — see `sources/` for extracted content
+
+Edge semantics:
+- `derived_from` edges: concept → its inbox source document
+- `synthesized_from` edges: wiki entry → source concepts it was built from
+- `references` edges: in-body cross-links between concepts
+
+Query patterns:
+- `graphify query "<topic>"` — find relevant concept nodes
+- `graphify path "wiki/<X>" "sources/<slug>/<Y>"` — trace provenance chain
+- `graphify explain "<concept>"` — focused subgraph for one concept
+- Read `graphify-out/GRAPH_REPORT.md` for vault-wide structure and god nodes
+<!-- /vault-graphify -->
+EOF
+  fi
+fi
+
+# ── Write last_graphify timestamp to .vault-state.json ───────────────────
+timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+py -3 - "$STATE_FILE" "$timestamp" "$MODE" <<'PYEOF' 2>/dev/null || true
+import json, sys, os
+f, ts, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(f)) if os.path.isfile(f) else {}
+d['last_graphify'] = ts
+d['last_graphify_mode'] = mode
+json.dump(d, open(f, 'w'), indent=2)
+PYEOF
+
+echo "Graph updated ($MODE) at $GRAPH_OUT"

@@ -1,0 +1,112 @@
+#!/bin/bash
+# bin/vault-deps
+# Usage: vault-deps <vault-root> <command> [args...]
+#
+# Commands:
+#   add <name> <gh-url> <version> [--type skill|tool|spec]
+#       Append a dependency entry to DEPENDENCIES.md
+#   update <name> <version>
+#       Update the version and date of an existing entry
+#   check
+#       Verify DEPENDENCIES.md exists and is non-empty (used by vault-validate)
+#
+# DEPENDENCIES.md lives at <vault-root>/DEPENDENCIES.md
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+VAULT_ROOT="${1:-$HOME/vault}"
+COMMAND="${2:-check}"
+DEPS_FILE="$VAULT_ROOT/DEPENDENCIES.md"
+
+_ensure_file() {
+  if [[ ! -f "$DEPS_FILE" ]]; then
+    cat > "$DEPS_FILE" <<'EOF'
+# Dependencies
+
+All skills, tools, and specifications required by this vault.
+
+| Name | Type | Version | GH URL | Installed |
+|------|------|---------|--------|-----------|
+EOF
+  fi
+}
+
+case "$COMMAND" in
+
+  add)
+    NAME="${3:?vault-deps add <name> <gh-url> <version> [--type skill|tool|spec]}"
+    GH_URL="${4:?vault-deps add <name> <gh-url> <version>}"
+    VERSION="${5:?vault-deps add <name> <gh-url> <version>}"
+    TYPE="skill"
+    [[ "${6:-}" == "--type" ]] && TYPE="${7:-skill}"
+
+    _ensure_file
+
+    # Idempotent: skip if name already present
+    if grep -q "| $NAME |" "$DEPS_FILE" 2>/dev/null; then
+      echo "vault-deps: '$NAME' already in DEPENDENCIES.md — use 'update' to change version"
+      exit 0
+    fi
+
+    echo "| $NAME | $TYPE | $VERSION | $GH_URL | $(date -u +"%Y-%m-%d") |" >> "$DEPS_FILE"
+    echo "vault-deps: added $NAME ($VERSION)"
+    ;;
+
+  update)
+    NAME="${3:?vault-deps update <name> <version>}"
+    VERSION="${4:?vault-deps update <name> <version>}"
+
+    if [[ ! -f "$DEPS_FILE" ]]; then
+      echo "vault-deps: DEPENDENCIES.md not found" >&2
+      exit 1
+    fi
+
+    if ! grep -q "| $NAME |" "$DEPS_FILE" 2>/dev/null; then
+      echo "vault-deps: '$NAME' not found in DEPENDENCIES.md" >&2
+      exit 1
+    fi
+
+    TODAY=$(date -u +"%Y-%m-%d")
+    py -3 - "$DEPS_FILE" "$NAME" "$VERSION" "$TODAY" <<'PYEOF'
+import sys, re
+f, name, version, today = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+lines = open(f, encoding='utf-8').readlines()
+out = []
+for line in lines:
+    if re.match(r'\|\s*' + re.escape(name) + r'\s*\|', line):
+        parts = [p.strip() for p in line.strip().strip('|').split('|')]
+        parts[2] = version
+        parts[4] = today
+        line = '| ' + ' | '.join(parts) + ' |\n'
+    out.append(line)
+open(f, 'w', encoding='utf-8').writelines(out)
+PYEOF
+    echo "vault-deps: updated $NAME to $VERSION"
+    ;;
+
+  check)
+    if [[ ! -f "$DEPS_FILE" ]]; then
+      echo "ERROR [RULE-030] $DEPS_FILE: DEPENDENCIES.md missing"
+      exit 1
+    fi
+    # Count data rows (lines starting with | that are not the header or separator)
+    row_count=$(grep -c "^|" "$DEPS_FILE" 2>/dev/null || echo "0")
+    # Subtract 2 for header row and separator row
+    data_rows=$(( row_count - 2 ))
+    if [[ "$data_rows" -le 0 ]]; then
+      echo "WARNING [RULE-030] $DEPS_FILE: DEPENDENCIES.md exists but has no entries"
+      exit 0
+    fi
+    echo "vault-deps: OK ($data_rows entries)"
+    exit 0
+    ;;
+
+  *)
+    echo "vault-deps: unknown command '$COMMAND'" >&2
+    echo "Usage: vault-deps <vault-root> add|update|check [args...]" >&2
+    exit 1
+    ;;
+
+esac

@@ -24,9 +24,10 @@ regenerate_index() {
 if [[ -d "$TARGET" ]]; then
   # Regenerate for target dir and all subdirs that contain .md files
   while IFS= read -r -d '' dir; do
-    # Skip engine/ directory and hidden dirs
+    # Skip engine/ directory, hidden dirs, and graphify-out/
     [[ "$dir" == *"/engine"* ]] && continue
     [[ "$dir" == *"/."* ]] && continue
+    [[ "$dir" == *"/graphify-out"* ]] && continue
     # Only regenerate if dir contains .md files (besides index.md itself)
     has_md=$(find "$dir" -maxdepth 1 -name "*.md" -not -name "index.md" | head -1)
     [[ -n "$has_md" ]] && regenerate_index "$dir"

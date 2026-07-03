@@ -32,6 +32,15 @@ echo "sources/slug/concept.md" | bash engine/bin/vault-review <vault-root>
 - Wiki entry without any source link → ERROR (blocks commit)
 - Modified concept without today's `log.md` entry → WARNING (allows commit)
 
+## Scope
+
+vault-review gates **vault content** (OKF concept files in sources/ and wiki/).
+It does not gate plugin source changes (bin/, lib/, skills/).
+
+Plugin source changes are governed by the plugin repo's CLAUDE.md — which
+requires a version bump in `.claude-plugin/plugin.json` and a CHANGELOG.md
+entry for every session that modifies bin/, lib/, skills/, or templates/.
+
 ## Setup
 
 Install the pre-commit hook once per clone:

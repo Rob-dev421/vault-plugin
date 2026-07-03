@@ -2,7 +2,11 @@
 
 Your OKF knowledge vault pipeline is ready.
 
-**Get started in one command:**
+**First time setup:**
+
+See [INSTALL.md](INSTALL.md) for the full installation guide including prerequisite order (Claude Code → git → Python → bash → uv → graphify).
+
+**If prerequisites are already installed, get started in one command:**
 
 ```
 /vault-init

@@ -9,11 +9,6 @@ set -uo pipefail
 PLUGIN_DIR="${1:?vault-init requires plugin directory as first argument}"
 VAULT_ROOT="${HOME}/vault"
 
-# ── Platform notice ────────────────────────────────────────────────────────
-if [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" ]]; then
-  echo "Windows detected (Git Bash). Proceeding..."
-fi
-
 # ── Idempotent: vault already exists ──────────────────────────────────────
 if [[ -f "$VAULT_ROOT/.vault" ]]; then
   echo "Vault already exists at $VAULT_ROOT"
@@ -140,6 +135,16 @@ cat > "$VAULT_ROOT/.gitignore" <<'EOF'
 *.mp4
 *.mp3
 .vault-state.json
+graphify-out/
+EOF
+
+# ── .graphifyignore — keep non-knowledge files out of the graph ────────────
+cat > "$VAULT_ROOT/.graphifyignore" <<'EOF'
+inbox/
+graphify-out/
+**/index.md
+**/log.md
+**/transcript.md
 EOF
 
 # ── Git init + initial commit ─────────────────────────────────────────────

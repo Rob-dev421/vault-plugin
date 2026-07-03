@@ -14,6 +14,8 @@ wiki/     ← Claude synthesizes curated knowledge
 /plugin install vault@github.com/mateffy/vault-plugin
 ```
 
+See [INSTALL.md](INSTALL.md) for the full setup guide including prerequisite install order.
+
 ## Quick start
 
 After installing, run:

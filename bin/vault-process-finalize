@@ -36,7 +36,6 @@ fi
 ITEM_MTIME=$(py -3 -c "import os; print(os.path.getmtime('$INPUT_MD'))" 2>/dev/null || echo "0")
 
 new_spawned=()
-skipped=()
 for concept in "${CONCEPT_FILES[@]}"; do
   [[ -f "$concept" ]] || continue
   # Get bundle-relative path
@@ -49,7 +48,6 @@ for concept in "${CONCEPT_FILES[@]}"; do
     CONCEPT_MTIME=$(py -3 -c "import os; print(os.path.getmtime('$concept'))" 2>/dev/null || echo "0")
     skip=$(py -3 -c "print('yes' if float('$CONCEPT_MTIME') > float('$ITEM_MTIME') else 'no')" 2>/dev/null || echo "no")
     if [[ "$skip" == "yes" ]]; then
-      skipped+=("$rel_path")
       echo "Preserving manually edited: $rel_path" >&2
     fi
     continue
@@ -108,3 +106,9 @@ for concept in "${CONCEPT_FILES[@]}"; do
 done
 
 echo "Processed: ${#CONCEPT_FILES[@]} concepts extracted"
+
+# ── Incremental graph update (soft dependency) ────────────────────────────
+VAULT_GRAPHIFY="$SCRIPT_DIR/vault-graphify"
+if [[ -f "$VAULT_GRAPHIFY" ]]; then
+  bash "$VAULT_GRAPHIFY" "$VAULT_ROOT" 2>/dev/null || true
+fi

@@ -63,6 +63,7 @@ $([ -n "$sample_title" ] && echo "  Example: \"$sample_title\"" || true)
   vault-audit     — find stale/orphaned/low-quality items
   vault-status    — quick health summary
   vault-freshness — detect drifted source concepts
+  vault-graphify  — build/update knowledge graph (requires graphify)
 
 ## Setup for new contributors
 
@@ -80,3 +81,21 @@ $([ -n "$sample_title" ] && echo "  Example: \"$sample_title\"" || true)
 
    engine/docs/IMPLEMENTATION_PLAN.md
 EOF
+
+# Append graphify section if installed
+if command -v graphify &>/dev/null; then
+  GRAPH_REPORT="$VAULT_ROOT/graphify-out/GRAPH_REPORT.md"
+  cat <<EOF
+
+## Knowledge graph (graphify)
+
+The vault has a queryable knowledge graph in graphify-out/.
+
+  graphify query "<topic>"               — find concept nodes by topic
+  graphify path "wiki/X" "sources/Y"    — trace provenance chain
+  graphify explain "<concept>"           — focused subgraph
+  vault-graphify --full                  — full rebuild (uses LLM API)
+
+$([ -f "$GRAPH_REPORT" ] && echo "Graph report: $GRAPH_REPORT" || echo "No graph yet — run /vault-graphify to build one.")
+EOF
+fi

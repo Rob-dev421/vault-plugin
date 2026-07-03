@@ -7,8 +7,6 @@
 set -uo pipefail
 
 VAULT_ROOT="${1:-$HOME/vault}"
-CHECK_RESOURCES=false
-[[ "${2:-}" == "--check-resources" ]] && CHECK_RESOURCES=true
 
 INBOX_DIR="$VAULT_ROOT/inbox"
 SOURCES_DIR="$VAULT_ROOT/sources"

@@ -3,8 +3,7 @@ name: vault-validate
 description: >
   Validate an OKF vault or file for conformance with OKF v0.1. Use when the
   user says "validate the vault", "check vault conformance", "run vault-validate",
-  or "/vault-validate". Two modes: shell gate for CI/pre-commit (bin/vault-validate),
-  and interactive report via /open-knowledge-format for human review.
+  or "/vault-validate". Shell gate for CI/pre-commit (bin/vault-validate).
 user-invocable: true
 allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/bin/vault-validate:*)"]
 ---
@@ -12,16 +11,6 @@ allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/bin/vault-validate:*)"]
 # vault-validate
 
 Validates OKF v0.1 conformance for a vault or individual file.
-
-## Two modes
-
-| Mode | Command | Use case |
-|---|---|---|
-| **Shell gate** | `bash engine/bin/vault-validate <path>` | CI, pre-commit hook, scripting — exits 0/1 |
-| **Interactive report** | `/open-knowledge-format` → validate | Human review — richer recommendations |
-
-Both modes must agree on errors. The OKF skill may surface additional quality
-recommendations beyond what the shell rules encode.
 
 ## Shell gate usage
 
@@ -31,9 +20,6 @@ bash engine/bin/vault-validate /path/to/vault
 
 # Validate a single file
 bash engine/bin/vault-validate sources/slug/concept.md
-
-# Validate only inbox layer rules
-bash engine/bin/vault-validate /path/to/vault --layer inbox
 ```
 
 ## Report format
@@ -70,6 +56,8 @@ bash engine/bin/vault-validate /path/to/vault --layer inbox
 | RULE-011 | ERROR | `input.md` `status` not in [pending, processed, failed] |
 | RULE-012 | WARNING | `spawned:` path does not resolve in bundle |
 | RULE-013 | WARNING | `transcript.md` has `type` field (reserved file) |
+| RULE-030 | ERROR | vault root missing `DEPENDENCIES.md` |
+| RULE-030 | WARNING | `DEPENDENCIES.md` exists but has no entries |
 
 ## When to run
 

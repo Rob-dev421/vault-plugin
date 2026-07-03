@@ -27,9 +27,18 @@ fi
 # Read last-run timestamps
 last_validate="—"
 last_audit="—"
+last_graphify="—"
+last_graphify_mode=""
 if [[ -f "$STATE_FILE" ]]; then
-  last_validate=$(py -3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('last_validate','—'))" 2>/dev/null || echo "—")
-  last_audit=$(py -3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('last_audit','—'))" 2>/dev/null || echo "—")
+  eval "$(py -3 - "$STATE_FILE" <<'PYEOF' 2>/dev/null || true
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(f"last_validate={d.get('last_validate','—')}")
+print(f"last_audit={d.get('last_audit','—')}")
+print(f"last_graphify={d.get('last_graphify','—')}")
+print(f"last_graphify_mode={d.get('last_graphify_mode','')}")
+PYEOF
+  )"
 fi
 
 echo "# Vault Status"
@@ -42,6 +51,11 @@ echo ""
 echo "## Last runs"
 echo "- vault-validate: $last_validate"
 echo "- vault-audit:    $last_audit"
+if [[ "$last_graphify" != "—" ]]; then
+  echo "- vault-graphify: $last_graphify${last_graphify_mode:+ ($last_graphify_mode)}"
+else
+  echo "- vault-graphify: — (not installed or never run)"
+fi
 echo ""
 echo "## Health"
 if [[ $pending -eq 0 && $failed -eq 0 ]]; then

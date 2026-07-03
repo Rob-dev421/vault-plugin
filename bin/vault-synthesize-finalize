@@ -29,3 +29,9 @@ for wiki_file in "${WIKI_FILES[@]}"; do
 
   echo "Finalized wiki entry: $rel_path"
 done
+
+# ── Incremental graph update (soft dependency) ────────────────────────────
+VAULT_GRAPHIFY="$SCRIPT_DIR/vault-graphify"
+if [[ -f "$VAULT_GRAPHIFY" ]]; then
+  bash "$VAULT_GRAPHIFY" "$VAULT_ROOT" 2>/dev/null || true
+fi

@@ -28,12 +28,37 @@ For a given `inbox/<date-slug>/` item with `status: pending`:
    timestamp: <ISO 8601>
    ```
    For images: body contains a structured JSON block describing the image schema/content
-4. Use the `open-knowledge-format` skill to author each extracted concept file at
-   `sources/<slug>/<concept>.md` with:
+4. Author each extracted concept file at `sources/<slug>/<concept>.md`:
+
+   **Frontmatter:**
    - Required: `type`, `title`, `description`, `derived_from`
    - Recommended: `tags`, `timestamp`, `confidence: low | medium | high`
-   - Body sections: `# Overview`, `# Schema` (if applicable), `# Examples`, `# Citations`
-   - Bundle-relative cross-links to related concepts
+
+   **Body sections:** `# Overview`, `# Schema` (if applicable), `# Examples`, `# Citations`
+
+   Use bundle-relative cross-links to related concepts (`/sources/slug/other.md`).
+
+### OKF body encoding for graphify
+
+Apply these rules when authoring each concept file body (graphify reads body links, not frontmatter):
+
+**T02-1 — Provenance link:** Insert this line immediately after the `# Overview` heading, using the `derived_from` frontmatter value:
+```
+Extracted from [source document](/inbox/<date-slug>/input.md).
+```
+
+**T02-2 — Confidence callout:** Place directly below the provenance line:
+- `confidence: low` → `> Confidence: low — speculative, needs human review.`
+- `confidence: medium` → `> Confidence: medium — inferred from context.`
+- `confidence: high` → omit (no callout)
+
+**T02-3 — Topics section:** If `tags:` is set, append before `# Citations` (or at end of body if no Citations section):
+```markdown
+## Topics
+tag1, tag2, tag3
+```
+Tags are the `tags:` frontmatter values joined with `, `.
+
 5. Call `bin/vault-process-finalize` as the final step:
    ```bash
    bash engine/bin/vault-process-finalize \
